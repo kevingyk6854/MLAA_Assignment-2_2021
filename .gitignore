@@ -37,3 +37,9 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+# knitr generated html
+/code/*.html
+
+# hidden file in the Apple MacOS operating system
+.DS_Store
