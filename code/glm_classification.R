@@ -25,8 +25,7 @@ AT2_db <- read_csv(here::here("data", "AT2_credit_train.csv"))
 str(AT2_db)
 
 # default proportions
-prop.table(table(AT2_db$default))
-
+prop.table(table(AT2_db$default)) #0.7347734(N) vs. 0.2652266(Y) 
 
 #count NAs
 AT2_db %>% 
@@ -40,21 +39,27 @@ AT2_db <- AT2_db %>%
   drop_na(SEX)
 AT2_db <- AT2_db[AT2_db$SEX !="2113" & AT2_db$LIMIT_BAL != "-99" & AT2_db$AGE != "157", ]
 
+#remove non-numeric column
+data <- subset(AT2_db, select = -c(ID))
+
+
 # check the distribution of each variable
-for (var in names(AT2_db)){
+for (var in names(data)){
     if (!var %in% c("ID")){
-      b <- AT2_db %>% 
+      b <- data %>% 
         ggplot(aes_string(var)) +
-        geom_bar(aes(y=..count..)， fill="cornflowerblue", color="black", alpha=0.7) +
+        geom_bar(aes(y=..count..), fill="cornflowerblue", color="black", alpha=0.7) +
         ggtitle(paste0("Bar Plot of", "\n", var))
       print(b)
     }
 }
 
 # review correlations
-AT2_db %>% 
-      select(-c(ID, default)) %>% 
-      select_if(is.numeric) %>% 
-      cor() %>% 
-      corrplot::
+D <- data %>% 
+    select(-c(default)) %>% 
+    select_if(is.numeric) %>% 
+    cor()
 
+head(round(D,2))
+
+corrplot(D, method = "circle")
