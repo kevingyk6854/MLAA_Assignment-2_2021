@@ -1,0 +1,149 @@
+---
+title: "LightGBM in R"
+output: html_document
+---
+
+This kernel borrows functions from Kevin, Troy Walter and Andy Harless (thank you guys)
+
+I've been looking into `lightgbm` over the past few weeks and after some struggle to install it on windows it did pay off - the results are great and speed is particularly exceptional (5 to 10 times faster than xgb on my i5 4Gb ram toaster, my hamsters could never be so happy).
+
+I wanted to share a bit of what I gathered through reading their documentation as well as give a working example so that you guys can use it in many competitions to come.
+
+
+```{r, message=FALSE,warning=FALSE,error=FALSE,results='hide'}
+library(data.table)
+library(Matrix)
+library(dplyr)
+library(MLmetrics)
+library(lightgbm)
+set.seed(257)
+
+train = fread("../input/train.csv") %>% as.data.frame()
+test  = fread("../input/test.csv")  %>% as.data.frame()
+```
+
+
+# Pre Processing
+
+```{r}
+median.impute = function(x){
+  x = as.data.frame(x)
+  for (i in 1:ncol(x)){
+    x[which(x[,i]== -1),i] = NA
+  }
+  
+  x = x %>% mutate_all(~ifelse(is.na(.), median(., na.rm = TRUE), .)) %>% as.data.table()
+  return(x)
+}
+
+train = median.impute(train)
+test  = median.impute(test)
+```
+
+
+# Feature Engineering
+
+```{r}
+test$target = NA
+data = rbind(train, test)
+
+data[, fe_amount_NA := rowSums(data == -1, na.rm = T)]
+data[, ps_car_13_ps_reg_03 := ps_car_13*ps_reg_03]
+data[, ps_reg_mult := ps_reg_01*ps_reg_02*ps_reg_03]
+```
+
+# Create LGB Dataset
+
+```{r}
+varnames = setdiff(colnames(data), c("id", "target"))
+
+train_sparse = Matrix(as.matrix(data[!is.na(target), varnames, with=F]), sparse=TRUE)
+test_sparse  = Matrix(as.matrix(data[is.na(target) , varnames, with=F]), sparse=TRUE)
+
+y_train  = data[!is.na(target),target]
+test_ids = data[is.na(target) ,id]
+
+lgb.train = lgb.Dataset(data=train_sparse, label=y_train)
+
+categoricals.vec = colnames(train)[c(grep("cat",colnames(train)))]
+```
+
+# Setting up LGBM Parameters
+
+```{r}
+lgb.grid = list(objective = "binary",
+                metric = "auc",
+                min_sum_hessian_in_leaf = 1,
+                feature_fraction = 0.7,
+                bagging_fraction = 0.7,
+                bagging_freq = 5,
+                min_data = 100,
+                max_bin = 50,
+                lambda_l1 = 8,
+                lambda_l2 = 1.3,
+                min_data_in_bin=100,
+                min_gain_to_split = 10,
+                min_data_in_leaf = 30,
+                is_unbalance = TRUE)
+```
+
+Laurae kindly describes all of lgb parameters with their xgb counterparts whenever available, for more details I suggest the following link <https://sites.google.com/view/lauraepp/parameters>
+
+# Setting up Gini Eval Function
+
+```{r}
+# Gini for Lgb
+lgb.normalizedgini = function(preds, dtrain){
+  actual = getinfo(dtrain, "label")
+  score  = NormalizedGini(preds,actual)
+  return(list(name = "gini", value = score, higher_better = TRUE))
+}
+```
+
+# Cross Validation
+
+```{r}
+#lgb.model.cv = lgb.cv(params = lgb.grid, data = lgb.train, learning_rate = 0.02, num_leaves = 25,
+#                   num_threads = 2 , nrounds = 7000, early_stopping_rounds = 50,
+#                   eval_freq = 20, eval = lgb.normalizedgini,
+#                   categorical_feature = categoricals.vec, nfold = 5, stratified = TRUE)
+
+#best.iter = lgb.model.cv$best_iter
+best.iter = 525
+```
+
+Lgb has in built functions to create stratified k folds, which is pretty handy for our unbalanced dataset problem.
+
+
+# Train Final Model
+
+```{r}
+# Train final model
+lgb.model = lgb.train(params = lgb.grid, data = lgb.train, learning_rate = 0.02,
+                      num_leaves = 25, num_threads = 2 , nrounds = best.iter,
+                      eval_freq = 20, eval = lgb.normalizedgini,
+                      categorical_feature = categoricals.vec)
+```
+
+
+Another handy feature is automatic handling of categorical data, represented with `categorical_feature` arg.
+
+# Create and Submit Predictions
+
+```{r}
+preds = data.table(id=test_ids, target=predict(lgb.model,test_sparse))
+colnames(preds)[1] = "id"
+fwrite(preds, "submission.csv")
+```
+
+
+Hope it helps!
+
+I'm still learning more about Lgbm, if you have any suggestions or questions I'll be happy to hear.
+For details on how to install: <https://github.com/Microsoft/LightGBM/tree/master/R-package>
+
+Cheers
+
+
+
+
