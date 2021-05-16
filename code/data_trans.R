@@ -52,9 +52,9 @@ feature_creating <- function(df){
                                           ifelse(LIMIT_BAL > 520000, 4, 0))))) %>%
     # Generate PAY_X BIN
     mutate(PAYX_BIN = ifelse(SQRT_PAYX <= 5 , 1, 
-                             ifelse(LIMIT_BAL >= 6 & LIMIT_BAL <= 9, 2, 
-                                    ifelse(LIMIT_BAL >= 10 & LIMIT_BAL <= 13, 3,
-                                           ifelse(LIMIT_BAL >= 14, 4, 0)))))
+                             ifelse(SQRT_PAYX >= 6 & SQRT_PAYX <= 9, 2, 
+                                    ifelse(SQRT_PAYX >= 10 & SQRT_PAYX <= 13, 3,
+                                           ifelse(SQRT_PAYX >= 14, 4, 0)))))
   return (df)
 }
 
