@@ -92,6 +92,9 @@ fig <- plot_ly(
   type = "bar"
 )
 
+fig <- fig %>% layout(xaxis = list(title = 'Payment History Summarised Bin'),
+                      yaxis = list(title = 'Default Count'))
+
 fig
 
 # 0-5, 6-9, 10-13, 14-18

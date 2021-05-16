@@ -76,6 +76,28 @@ fig <- fig %>% layout(xaxis = list(title = 'Age'),
 
 fig
 
+# group by gender
+sex_df <- credict_train_cleaned %>%
+  dplyr::group_by(SEX) %>%
+  dplyr::summarise(
+    default1_cnt = n(),
+    default1_percent = sum(default == 1) / n() * 100
+  ) %>%
+  arrange(SEX)
+# View(sex_df)
+
+sex_df['SEX_STR'] = 'unknown'
+sex_df['SEX_STR'][sex_df['SEX'] == 1] <- 'male'
+sex_df['SEX_STR'][sex_df['SEX'] == 2] <- 'female'
+
+fig <- plot_ly(x = ~sex_df$SEX_STR, 
+               y = ~sex_df$default1_percent, 
+               type = "bar")
+fig <- fig %>% layout(xaxis = list(title = 'Gender'),
+                      yaxis = list(title = 'Default Percentage[%]'))
+
+fig
+
 # TODO: age bin
 # >70 too little data
 # thus 50-70 is highest 
@@ -89,14 +111,29 @@ education_df <- credict_train_cleaned %>%
     default1_percent = sum(default == 1) / n() * 100
   ) %>%
   arrange(default1_percent)
+
+education_df['EDUCATION_STR'] = 'unknown'
+education_df['EDUCATION_STR'][education_df['EDUCATION'] == 1] <- 'graduate school'
+education_df['EDUCATION_STR'][education_df['EDUCATION'] == 2] <- 'university'
+education_df['EDUCATION_STR'][education_df['EDUCATION'] == 3] <- 'high school'
+education_df['EDUCATION_STR'][education_df['EDUCATION'] == 4] <- 'others'
+
 View(education_df)
 
-fig <- plot_ly(
-  x = education_df$EDUCATION,
-  y = education_df$default1_percent,
+education_df = education_df %>%
+  arrange(default1_percent)
+
+education_df$EDUCATION_STR <- factor(education_df$EDUCATION_STR, levels = c("graduate school", "university", "high school", "others"))
+
+fig <- plot_ly(data = education_df,
+  x = ~EDUCATION_STR,
+  y = ~default1_percent,
   name = "Education",
   type = "bar"
 )
+
+fig <- fig %>% layout(xaxis = list(title = 'Education Level'),
+                      yaxis = list(title = 'Default Percentage'))
 
 fig
 # Education: 1=graduate school, 2=university, 3=high school, 4=others
